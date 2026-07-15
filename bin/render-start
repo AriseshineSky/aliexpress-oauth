@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+mkdir -p /tmp storage tmp/pids log 2>/dev/null || true
+./bin/rails db:prepare
+exec ./bin/rails server -b "0.0.0.0" -p "${PORT:-3000}"

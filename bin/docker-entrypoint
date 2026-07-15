@@ -1,8 +1,10 @@
 #!/bin/bash -e
 
-# Always ensure schema exists. Render often starts with extra args
-# (e.g. ./bin/rails server -b 0.0.0.0 -p $PORT), so do not require a
-# bare "./bin/rails server" match.
+# Render may override CMD; keep migrations in the start path as well.
+mkdir -p /tmp storage tmp/pids log 2>/dev/null || true
+
+echo "[entrypoint] Preparing database..."
 ./bin/rails db:prepare
+echo "[entrypoint] Database ready. Starting: $*"
 
 exec "${@}"

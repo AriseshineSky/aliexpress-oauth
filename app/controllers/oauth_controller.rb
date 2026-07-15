@@ -44,7 +44,6 @@ class OauthController < ApplicationController
       return
     end
 
-    # Exchange code — no uuid unless authorize URL also sent one.
     token = Aliexpress::Oauth.new.exchange_code!(params[:code])
     session.delete(:oauth_state)
     Aliexpress::TokenStore.cache_code_token_id!(params[:code], token.id)
@@ -56,7 +55,8 @@ class OauthController < ApplicationController
   end
 
   def success
-    @token = AliExpressToken.find_by(id: params[:token_id]) || AliExpressToken.current_token
+    # Prefer Redis — token_id=redis means SQLite was skipped on this host.
+    @token = AliExpressToken.current_token
   end
 
   def failure

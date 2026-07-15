@@ -75,6 +75,6 @@ USER 1000:1000
 # Entrypoint prepares the database.
 ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 
-# Start the server by default, this can be overwritten at runtime
+# Start via wrapper that always migrates (Render-safe)
 EXPOSE 3000
-CMD ["./bin/rails", "server"]
+CMD ["./bin/render-start"]
