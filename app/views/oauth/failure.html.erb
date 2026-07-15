@@ -1,0 +1,19 @@
+<% content_for :title, "授权失败" %>
+
+<section class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-semibold text-red-700">授权失败</h1>
+    <p class="mt-2 text-slate-700"><%= @message %></p>
+  </div>
+
+  <% if @details.present? %>
+    <pre class="overflow-x-auto rounded-lg bg-slate-900 p-4 text-xs text-slate-100"><%= @details.is_a?(String) ? @details : (JSON.pretty_generate(@details) rescue @details.inspect) %></pre>
+  <% end %>
+
+  <p class="text-sm text-slate-500">授权码 code 只能使用一次。修好配置后请重新点击「重新授权」。</p>
+
+  <div class="flex gap-4 text-sm">
+    <%= link_to "重新授权", oauth_authorize_path, class: "text-orange-700 hover:underline" %>
+    <%= link_to "返回首页", root_path, class: "text-slate-600 hover:underline" %>
+  </div>
+</section>

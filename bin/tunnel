@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+# Start a Cloudflare quick tunnel to localhost:3000 and sync
+# ALIEXPRESS_CALLBACK_URL in .env to https://<host>/callback
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+PORT="${PORT:-3000}"
+ENV_FILE="${ENV_FILE:-$ROOT/.env}"
+CLOUDFLARED="${CLOUDFLARED:-}"
+LOG_FILE="${TMPDIR:-/tmp}/aliexpress-oauth-tunnel.log"
+URL_FILE="$ROOT/tmp/tunnel_url.txt"
+
+mkdir -p "$ROOT/tmp" "$ROOT/bin/vendor"
+
+resolve_cloudflared() {
+  if [[ -n "$CLOUDFLARED" && -x "$CLOUDFLARED" ]]; then
+    echo "$CLOUDFLARED"
+    return
+  fi
+  if command -v cloudflared >/dev/null 2>&1; then
+    command -v cloudflared
+    return
+  fi
+  if [[ -x "$ROOT/bin/vendor/cloudflared" ]]; then
+    echo "$ROOT/bin/vendor/cloudflared"
+    return
+  fi
+
+  echo "Downloading cloudflared into bin/vendor/ ..." >&2
+  local arch
+  case "$(uname -m)" in
+    x86_64) arch=amd64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    *) echo "Unsupported arch: $(uname -m)" >&2; exit 1 ;;
+  esac
+  curl -fsSL -o "$ROOT/bin/vendor/cloudflared" \
+    "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${arch}"
+  chmod +x "$ROOT/bin/vendor/cloudflared"
+  echo "$ROOT/bin/vendor/cloudflared"
+}
+
+update_env_callback() {
+  local https_origin="$1"
+  local callback="${https_origin%/}/callback"
+
+  if [[ ! -f "$ENV_FILE" ]]; then
+    cp "$ROOT/.env.example" "$ENV_FILE"
+  fi
+
+  if grep -q '^ALIEXPRESS_CALLBACK_URL=' "$ENV_FILE"; then
+    sed -i "s|^ALIEXPRESS_CALLBACK_URL=.*|ALIEXPRESS_CALLBACK_URL=${callback}|" "$ENV_FILE"
+  else
+    printf '\nALIEXPRESS_CALLBACK_URL=%s\n' "$callback" >> "$ENV_FILE"
+  fi
+
+  # Helps url helpers / redirects pick the public host when Rails boots after tunnel.
+  if grep -q '^ALIEXPRESS_PUBLIC_HOST=' "$ENV_FILE"; then
+    sed -i "s|^ALIEXPRESS_PUBLIC_HOST=.*|ALIEXPRESS_PUBLIC_HOST=${https_origin}|" "$ENV_FILE"
+  else
+    printf 'ALIEXPRESS_PUBLIC_HOST=%s\n' "$https_origin" >> "$ENV_FILE"
+  fi
+
+  echo "$callback" > "$URL_FILE"
+  echo "$callback"
+}
+
+CF="$(resolve_cloudflared)"
+echo "Using: $CF ($($CF --version 2>&1 | head -1))"
+echo "Tunneling http://127.0.0.1:${PORT}  ->  HTTPS (trycloudflare.com)"
+echo "Log: $LOG_FILE"
+echo
+
+# Clear previous URL so we wait for a fresh one
+rm -f "$URL_FILE"
+: > "$LOG_FILE"
+
+"$CF" tunnel --url "http://127.0.0.1:${PORT}" --no-autoupdate 2>&1 | tee "$LOG_FILE" &
+CF_PID=$!
+
+cleanup() {
+  echo
+  echo "Stopping tunnel (pid $CF_PID)..."
+  kill "$CF_PID" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+HTTPS_ORIGIN=""
+for _ in $(seq 1 60); do
+  if grep -Eo 'https://[a-zA-Z0-9.-]+\.trycloudflare\.com' "$LOG_FILE" >/tmp/ae_tunnel_urls.txt 2>/dev/null; then
+    HTTPS_ORIGIN="$(tail -1 /tmp/ae_tunnel_urls.txt)"
+    if [[ -n "$HTTPS_ORIGIN" ]]; then
+      break
+    fi
+  fi
+  if ! kill -0 "$CF_PID" 2>/dev/null; then
+    echo "cloudflared exited early. See $LOG_FILE" >&2
+    exit 1
+  fi
+  sleep 0.5
+done
+
+if [[ -z "$HTTPS_ORIGIN" ]]; then
+  echo "Timed out waiting for trycloudflare.com URL. See $LOG_FILE" >&2
+  exit 1
+fi
+
+CALLBACK="$(update_env_callback "$HTTPS_ORIGIN")"
+
+echo
+echo "============================================================"
+echo " HTTPS origin : $HTTPS_ORIGIN"
+echo " Callback URL : $CALLBACK"
+echo "============================================================"
+echo
+
+# Quick Tunnel often needs Rails on :3000; warn early if down.
+if ! curl -sf --max-time 2 "http://127.0.0.1:${PORT}/up" >/dev/null; then
+  echo "WARNING: Rails is NOT responding on :${PORT}."
+  echo "         Start it in another terminal:  bin/dev"
+  echo "         Without it, the HTTPS URL returns Cloudflare 502."
+  echo
+fi
+
+# systemd-resolved sometimes caches NXDOMAIN for *.trycloudflare.com
+if command -v resolvectl >/dev/null 2>&1; then
+  resolvectl flush-caches >/dev/null 2>&1 || true
+fi
+
+echo "1) 把上面 Callback URL 填进速卖通 App Console"
+echo "2) .env 已自动写入 ALIEXPRESS_CALLBACK_URL（改完需重启 Rails）"
+echo "3) 必须另开终端启动:  bin/dev   （:3000 要活着）"
+echo "4) 浏览器打开:  $HTTPS_ORIGIN"
+echo "   若打不开：resolvectl flush-caches 后重试，或先访问 http://127.0.0.1:${PORT}"
+echo
+echo "Tunnel running. Ctrl+C to stop."
+wait "$CF_PID"

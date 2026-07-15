@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= content_for(:title) || "AliExpress OAuth" %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= yield :head %>
+    <link rel="icon" href="/icon.png" type="image/png">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+    <header class="border-b border-slate-200 bg-white">
+      <div class="mx-auto flex max-w-3xl items-center justify-between px-5 py-4">
+        <a href="/" class="text-sm font-semibold tracking-tight text-slate-800">AliExpress OAuth</a>
+        <nav class="flex gap-4 text-sm text-slate-600">
+          <a href="<%= oauth_authorize_path %>" class="hover:text-slate-900">Authorize</a>
+          <a href="<%= oauth_callback_path %>" class="hover:text-slate-900">Callback</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="mx-auto max-w-3xl px-5 py-10">
+      <% if notice.present? %>
+        <p class="mb-6 rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><%= notice %></p>
+      <% end %>
+      <% if alert.present? %>
+        <p class="mb-6 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-900"><%= alert %></p>
+      <% end %>
+      <%= yield %>
+    </main>
+  </body>
+</html>
