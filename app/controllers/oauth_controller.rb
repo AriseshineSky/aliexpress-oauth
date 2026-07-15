@@ -44,8 +44,8 @@ class OauthController < ApplicationController
       return
     end
 
-    # Pass the same uuid that was sent on the authorize URL (we use state as uuid).
-    token = Aliexpress::Oauth.new.exchange_code!(params[:code], uuid: params[:state].presence || expected.presence)
+    # Exchange code — no uuid unless authorize URL also sent one.
+    token = Aliexpress::Oauth.new.exchange_code!(params[:code])
     session.delete(:oauth_state)
     Aliexpress::TokenStore.cache_code_token_id!(params[:code], token.id)
     redirect_to oauth_success_path(token_id: token.id)

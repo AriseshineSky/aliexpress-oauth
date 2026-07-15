@@ -11,7 +11,7 @@ module Aliexpress
       @client = client
     end
 
-    def authorization_url(state: nil, force_auth: true)
+    def authorization_url(state: nil, force_auth: true, uuid: nil)
       raise Error, "Set ALIEXPRESS_APP_KEY in .env" unless Aliexpress.config.app_key.present?
 
       query = {
@@ -20,11 +20,9 @@ module Aliexpress
         redirect_uri: Aliexpress.config.callback_url,
         force_auth: force_auth
       }
-      # state = CSRF; uuid must match between authorize and token create if used.
-      if state.present?
-        query[:state] = state
-        query[:uuid] = state
-      end
+      query[:state] = state if state.present?
+      # uuid is optional; only send when explicitly provided (must match token create).
+      query[:uuid] = uuid if uuid.present?
 
       "#{Aliexpress.config.authorize_url}?#{URI.encode_www_form(query)}"
     end
@@ -33,7 +31,6 @@ module Aliexpress
       raise Error, "Missing authorization code" if code.blank?
 
       api_params = { "code" => code.to_s.strip }
-      # Only send uuid when the authorize URL also included the same uuid.
       api_params["uuid"] = uuid.to_s if uuid.present?
 
       body = @client.execute(Aliexpress.config.token_path, api_params)
