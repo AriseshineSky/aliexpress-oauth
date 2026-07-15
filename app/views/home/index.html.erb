@@ -1,61 +1,87 @@
-<% content_for :title, "AliExpress OAuth Callback" %>
+<% content_for :title, "Everymarket · AliExpress IOP 授权中心" %>
 
 <section class="space-y-8">
   <div>
-    <p class="text-xs font-medium uppercase tracking-widest text-orange-600">Dropshipping · IOP</p>
-    <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-900">OAuth Callback 就绪</h1>
+    <p class="text-xs font-medium uppercase tracking-widest text-orange-600">Drop Shipping · IOP</p>
+    <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Everymarket · AliExpress IOP 授权中心</h1>
     <p class="mt-3 max-w-2xl text-slate-600">
-      把下面这个 URL <strong>原样</strong>填进速卖通 App Console 的 Callback URL（多一个斜杠、少一段路径都不行）。
-      用户授权后会带着 <code class="rounded bg-slate-100 px-1.5 py-0.5 text-sm">code</code>
-      回到这里，后端自动换取 <code class="rounded bg-slate-100 px-1.5 py-0.5 text-sm">access_token</code>。
+      私密 Token 控制台。公网只暴露 Callback 接收授权码；本页需 Basic Auth。
+    </p>
+  </div>
+
+  <% if flash[:notice].present? %>
+    <p class="rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><%= flash[:notice] %></p>
+  <% end %>
+  <% if flash[:alert].present? %>
+    <p class="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-950"><%= flash[:alert] %></p>
+  <% end %>
+
+  <% unless @basic_auth_on %>
+    <p class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+      未设置 <code>BASIC_AUTH_USER</code> / <code>BASIC_AUTH_PASSWORD</code>，首页仍对公网开放。请立即在 Render 配置。
+    </p>
+  <% end %>
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="rounded-lg border border-slate-200 bg-white p-5">
+      <p class="text-xs font-medium uppercase tracking-wide text-slate-500">App 凭证状态</p>
+      <% if @configured %>
+        <p class="mt-2 text-emerald-700">Client ID: <%= @app_key %>（已就绪）</p>
+        <p class="mt-1 text-xs text-slate-500">App Secret 永不在页面展示</p>
+      <% else %>
+        <p class="mt-2 text-amber-800">未配置 App Key / Secret</p>
+      <% end %>
+      <p class="mt-4 text-xs font-medium uppercase tracking-wide text-slate-500">Redis 状态</p>
+      <% if @redis_ok %>
+        <p class="mt-1 text-emerald-700">已连接</p>
+      <% else %>
+        <p class="mt-1 text-red-700">连接失败（检查 <code>REDIS_URL</code>）</p>
+      <% end %>
+    </div>
+
+    <div class="rounded-lg border border-slate-200 bg-white p-5">
+      <p class="text-xs font-medium uppercase tracking-wide text-slate-500">当前 Token 状态</p>
+      <% if @token&.usable? %>
+        <p class="mt-2 text-emerald-700">有效</p>
+        <p class="mt-1 text-sm text-slate-600">到期：<%= @token.expires_at || "—" %></p>
+        <% if @token.account.present? %>
+          <p class="mt-1 text-xs text-slate-500">Account: <%= @token.account %></p>
+        <% end %>
+        <p class="mt-3 font-mono text-xs text-slate-600">Access: <%= mask_secret(@token.access_token) %></p>
+        <p class="mt-1 font-mono text-xs text-slate-600">Refresh: <%= mask_secret(@token.refresh_token) %></p>
+      <% elsif @token %>
+        <p class="mt-2 text-amber-800">已过期 — 可尝试强制刷新或重新授权</p>
+        <p class="mt-1 font-mono text-xs text-slate-600">Access: <%= mask_secret(@token.access_token) %></p>
+      <% else %>
+        <p class="mt-2 text-slate-500">尚未授权</p>
+      <% end %>
+
+      <div class="mt-4 flex flex-wrap gap-2">
+        <% if @token&.refresh_token.present? %>
+          <%= button_to "立即刷新 Token", refresh_token_path, method: :post,
+              class: "inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 hover:bg-slate-50" %>
+        <% end %>
+        <%= link_to "开始重新授权", oauth_authorize_path,
+            class: "inline-flex items-center rounded-md bg-orange-600 px-3 py-2 text-sm font-medium text-white hover:bg-orange-500" %>
+      </div>
+    </div>
+  </div>
+
+  <div class="rounded-lg border border-slate-200 bg-white p-5">
+    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">开发者配置指引</p>
+    <p class="mt-2 text-sm text-slate-600">速卖通 App Console Callback URL 必须<strong>原样</strong>为：</p>
+    <p class="mt-2 break-all font-mono text-sm text-slate-900 select-all"><%= @callback_url %></p>
+    <p class="mt-3 text-xs text-slate-500">
+      Render 的 <code>ALIEXPRESS_CALLBACK_URL</code> 也须完全一致。多一个斜杠、少一段路径都会导致
+      <em>Redirect uri does not match</em>。
+    </p>
+    <p class="mt-3 text-xs text-slate-500">
+      <code>/callback</code> 与 <code>/up</code> <strong>不</strong>走 Basic Auth（保证速卖通回调与 Render 健康检查）。
+      首页 / 授权 / 成功页受密码保护。
     </p>
   </div>
 
   <div class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-    <p class="font-medium">若出现 Sorry, wrong! / temporary failure / Redirect uri does not match</p>
-    <p class="mt-1">说明 Console 里登记的 Callback 与下面不一致。改完 Console 后等一两分钟再点授权，
-    <strong>不需要</strong>在本地再开开发环境（用 Render 线上即可）。</p>
+    若出现 Sorry, wrong! / Redirect uri does not match：Console 登记的 Callback 与上方不一致。改完等 1–2 分钟再授权。
   </div>
-
-  <div class="rounded-lg border border-slate-200 bg-white p-5">
-    <p class="text-xs font-medium uppercase tracking-wide text-slate-500">App Console 必须填的 Callback URL</p>
-    <p class="mt-2 break-all font-mono text-sm text-slate-900 select-all"><%= @callback_url %></p>
-    <p class="mt-3 text-xs text-slate-500">Render 环境变量 <code>ALIEXPRESS_CALLBACK_URL</code> 也必须是同一串。</p>
-  </div>
-
-  <div class="grid gap-4 sm:grid-cols-2">
-    <div class="rounded-lg border border-slate-200 bg-white p-5">
-      <p class="text-xs font-medium uppercase tracking-wide text-slate-500">App 凭证</p>
-      <% if @configured %>
-        <p class="mt-2 text-emerald-700">已配置 App Key / Secret</p>
-        <p class="mt-1 font-mono text-xs text-slate-500">client_id=<%= @app_key %></p>
-      <% else %>
-        <p class="mt-2 text-amber-800">未配置 — 请在 Render Environment 填入 App Key / Secret</p>
-      <% end %>
-    </div>
-
-    <div class="rounded-lg border border-slate-200 bg-white p-5">
-      <p class="text-xs font-medium uppercase tracking-wide text-slate-500">当前 Token</p>
-      <% if @token&.usable? %>
-        <p class="mt-2 text-emerald-700">有效 · 过期于 <%= l(@token.expires_at, format: :long) if @token.expires_at %></p>
-        <p class="mt-1 truncate font-mono text-xs text-slate-500"><%= @token.access_token.to_s.first(24) %>...</p>
-      <% elsif @token %>
-        <p class="mt-2 text-amber-800">已过期，请重新授权</p>
-      <% else %>
-        <p class="mt-2 text-slate-500">尚未授权</p>
-      <% end %>
-    </div>
-  </div>
-
-  <div class="flex flex-wrap items-center gap-3">
-    <%= link_to "开始授权 /oauth/authorize", oauth_authorize_path,
-        class: "inline-flex items-center rounded-md bg-orange-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-500" %>
-  </div>
-
-  <ol class="list-decimal space-y-2 pl-5 text-sm text-slate-600">
-    <li>打开速卖通 App Console → 编辑应用 → Callback URL 设为上方地址并保存</li>
-    <li>确认 Render 的 <code>ALIEXPRESS_CALLBACK_URL</code> 完全相同</li>
-    <li>点击「开始授权」，用<strong>已加入 DS 中心</strong>的卖家账号登录并同意</li>
-    <li>成功后会跳到本站 <code>/oauth/success</code>，token 写入 Redis</li>
-  </ol>
 </section>

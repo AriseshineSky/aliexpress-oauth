@@ -20,9 +20,9 @@ ping_one() {
   echo "$(ts) ${url} -> ${code}"
 }
 
+# Only /up (no Basic Auth). Do not hit / — console is password-protected.
 {
   ping_one "/up"
-  ping_one "/"
 } >>"$LOG_FILE" 2>&1
 
 # Keep log small

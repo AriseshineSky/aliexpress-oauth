@@ -3,7 +3,7 @@
 <section class="space-y-6">
   <div>
     <h1 class="text-2xl font-semibold text-emerald-700">授权成功</h1>
-    <p class="mt-2 text-slate-600">已用 callback 中的 code 换取 access_token，并写入 Redis / 数据库。</p>
+    <p class="mt-2 text-slate-600">已用 callback 中的 code 换取 access_token，并写入 Redis（页面仅显示打码 Token）。</p>
   </div>
 
   <% if @token %>
@@ -18,11 +18,11 @@
       </div>
       <div>
         <dt class="text-slate-500">Access Token</dt>
-        <dd class="break-all font-mono text-xs text-slate-800"><%= @token.access_token %></dd>
+        <dd class="font-mono text-xs text-slate-800"><%= mask_secret(@token.access_token) %></dd>
       </div>
       <div>
         <dt class="text-slate-500">Refresh Token</dt>
-        <dd class="break-all font-mono text-xs text-slate-800"><%= @token.refresh_token %></dd>
+        <dd class="font-mono text-xs text-slate-800"><%= mask_secret(@token.refresh_token) %></dd>
       </div>
       <div>
         <dt class="text-slate-500">Expires At</dt>
@@ -31,5 +31,5 @@
     </dl>
   <% end %>
 
-  <%= link_to "返回首页", root_path, class: "text-sm text-orange-700 hover:underline" %>
+  <%= link_to "返回控制台", root_path, class: "text-sm text-orange-700 hover:underline" %>
 </section>

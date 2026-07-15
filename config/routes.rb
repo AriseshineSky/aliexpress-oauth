@@ -2,6 +2,7 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   root "home#index"
+  post "oauth/refresh", to: "home#refresh_token", as: :refresh_token
 
   # AliExpress OAuth — Console Callback URL uses /callback
   # e.g. https://aliexpress-oauth.onrender.com/callback
