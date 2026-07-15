@@ -1,0 +1,10 @@
+[Unit]
+Description=Keep aliexpress-oauth Render service awake
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/src/aliexpress-oauth/bin/keepalive
+Environment=ALIEXPRESS_OAUTH_URL=https://aliexpress-oauth.onrender.com
+Environment=KEEPALIVE_TIMEOUT=25

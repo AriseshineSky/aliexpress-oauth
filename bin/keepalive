@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Keep Render free-tier web service awake by pinging public HTTPS endpoints.
+# Intended for cron / systemd timer every 10 minutes.
+set -euo pipefail
+
+BASE_URL="${ALIEXPRESS_OAUTH_URL:-https://aliexpress-oauth.onrender.com}"
+LOG_DIR="${KEEPALIVE_LOG_DIR:-$HOME/.local/share/aliexpress-oauth}"
+LOG_FILE="${LOG_DIR}/keepalive.log"
+TIMEOUT_SEC="${KEEPALIVE_TIMEOUT:-25}"
+
+mkdir -p "$LOG_DIR"
+
+ts() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
+
+ping_one() {
+  local path="$1"
+  local url="${BASE_URL%/}${path}"
+  local code
+  code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time "$TIMEOUT_SEC" "$url" || echo "000")
+  echo "$(ts) ${url} -> ${code}"
+}
+
+{
+  ping_one "/up"
+  ping_one "/"
+} >>"$LOG_FILE" 2>&1
+
+# Keep log small
+if [[ -f "$LOG_FILE" ]] && [[ "$(wc -c <"$LOG_FILE")" -gt 200000 ]]; then
+  tail -n 500 "$LOG_FILE" >"${LOG_FILE}.tmp" && mv "${LOG_FILE}.tmp" "$LOG_FILE"
+fi
