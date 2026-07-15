@@ -79,11 +79,24 @@ module Aliexpress
         raw_response: raw
       }
 
+      record = persist_sqlite!(attrs)
+      Aliexpress::TokenStore.write!(
+        attrs.merge(
+          id: record&.id || "redis",
+          created_at: record&.created_at || Time.current
+        )
+      )
+      record || Aliexpress::TokenStore.fetch || raise(Error, "Failed to persist token (SQLite + Redis)")
+    end
+
+    def persist_sqlite!(attrs)
       record = AliExpressToken.order(created_at: :desc).first_or_initialize
       record.assign_attributes(attrs)
       record.save!
-      Aliexpress::TokenStore.write!(attrs.merge(id: record.id, created_at: record.created_at))
       record
+    rescue ActiveRecord::StatementInvalid, ActiveRecord::NoDatabaseError => e
+      Rails.logger.warn("[Aliexpress::Oauth] SQLite persist skipped: #{e.message}")
+      nil
     end
 
     def refresh_expires_time(payload, refresh_expires_in)

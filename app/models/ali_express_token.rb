@@ -7,6 +7,9 @@ class AliExpressToken < ApplicationRecord
 
   def self.latest
     current.first
+  rescue ActiveRecord::StatementInvalid, ActiveRecord::NoDatabaseError => e
+    Rails.logger.warn("[AliExpressToken] SQLite unavailable: #{e.message}")
+    nil
   end
 
   # Prefer Upstash Redis (survives Render free-tier filesystem resets), then SQLite.

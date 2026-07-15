@@ -1,8 +1,8 @@
 #!/bin/bash -e
 
-# If running the rails server then create or migrate existing database
-if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
-  ./bin/rails db:prepare
-fi
+# Always ensure schema exists. Render often starts with extra args
+# (e.g. ./bin/rails server -b 0.0.0.0 -p $PORT), so do not require a
+# bare "./bin/rails server" match.
+./bin/rails db:prepare
 
 exec "${@}"
