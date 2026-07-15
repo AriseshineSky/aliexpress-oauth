@@ -4,7 +4,7 @@ Rails.application.routes.draw do
   root "home#index"
 
   # AliExpress OAuth — Console Callback URL uses /callback
-  # e.g. https://everymarket.onrender.com/callback
+  # e.g. https://aliexpress-oauth.onrender.com/callback
   get "callback", to: "oauth#callback", as: :callback
 
   get "oauth/authorize", to: "oauth#authorize", as: :oauth_authorize

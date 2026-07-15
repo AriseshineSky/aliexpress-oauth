@@ -63,7 +63,7 @@ Rails.application.configure do
 
   # Set host to be used by links generated in mailer templates.
   config.action_mailer.default_url_options = {
-    host: ENV.fetch("APP_HOST", "everymarket.onrender.com"),
+    host: ENV.fetch("APP_HOST", "aliexpress-oauth.onrender.com"),
     protocol: "https"
   }
 
@@ -87,7 +87,7 @@ Rails.application.configure do
   config.active_record.attributes_for_inspect = [ :id ]
 
   # Render + custom host
-  config.hosts << "everymarket.onrender.com"
+  config.hosts << "aliexpress-oauth.onrender.com"
   config.hosts << /.*\.onrender\.com/
   config.hosts << ENV["APP_HOST"] if ENV["APP_HOST"].present?
 

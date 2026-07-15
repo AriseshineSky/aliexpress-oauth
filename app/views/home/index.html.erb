@@ -56,7 +56,7 @@
   <ol class="list-decimal space-y-2 pl-5 text-sm text-slate-600">
     <li>App Console Callback URL 填 <code><%= @callback_url %></code>（须与环境变量一致）</li>
     <li>配置 <code>ALIEXPRESS_APP_KEY</code> / <code>ALIEXPRESS_APP_SECRET</code>（及生产环境 <code>REDIS_URL</code>）</li>
-    <li>本地需要 HTTPS 时运行 <code>bin/dev-https</code>；生产用 Render：<code>https://everymarket.onrender.com/callback</code></li>
+    <li>本地需要 HTTPS 时运行 <code>bin/dev-https</code>；生产用 Render：<code>https://aliexpress-oauth.onrender.com/callback</code></li>
     <li>点击「开始授权」，登录速卖通并同意授权</li>
     <li>回调页自动调用 <code>/auth/token/create</code> 并存入 Redis（带 EXPIRE）</li>
   </ol>

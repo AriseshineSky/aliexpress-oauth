@@ -8,7 +8,7 @@ Rails 8 应用：实现速卖通开放平台 **OAuth 2.0 Callback URL**，用授
 |------|-----|
 | App Name | `EverymarketSyncTool` |
 | App Category | Drop Shipping |
-| **Callback URL** | **`https://everymarket.onrender.com/callback`** |
+| **Callback URL** | **`https://aliexpress-oauth.onrender.com/callback`** |
 
 路径必须是 `/callback`，与 Console 示例 `https://www.myapp.com/callback` 一致。
 
@@ -17,14 +17,14 @@ Rails 8 应用：实现速卖通开放平台 **OAuth 2.0 Callback URL**，用授
 1. 把本仓库推到 GitHub
 2. [Upstash](https://upstash.com/) 免费建一个 Redis，复制 `REDIS_URL`（`rediss://...`）
 3. [Render](https://render.com/) → New → Blueprint（选本仓库的 `render.yaml`），或 New Web Service：
-   - Name: **`everymarket`** → 域名 `https://everymarket.onrender.com`
+   - Name: **`aliexpress-oauth`** → 域名 `https://aliexpress-oauth.onrender.com`
    - Runtime: Docker
 4. 在 Render Environment 填入：
 
 ```
 ALIEXPRESS_APP_KEY=你的AppKey
 ALIEXPRESS_APP_SECRET=你的AppSecret
-ALIEXPRESS_CALLBACK_URL=https://everymarket.onrender.com/callback
+ALIEXPRESS_CALLBACK_URL=https://aliexpress-oauth.onrender.com/callback
 REDIS_URL=rediss://default:...@....upstash.io:6379
 SECRET_KEY_BASE=（Render 可自动生成）
 ```
@@ -32,7 +32,7 @@ SECRET_KEY_BASE=（Render 可自动生成）
 5. 部署完成后，用首页的 **开始授权**，或直接打开：
 
 ```
-https://everymarket.onrender.com/oauth/authorize
+https://aliexpress-oauth.onrender.com/oauth/authorize
 ```
 
 > 免费 Web Service 无流量会休眠，首次回调可能要等约 30 秒唤醒，内部工具可接受。
@@ -42,7 +42,7 @@ https://everymarket.onrender.com/oauth/authorize
 ```
 卖家点授权
   → https://api-sg.aliexpress.com/oauth/authorize?...
-  → 同意后跳转 GET https://everymarket.onrender.com/callback?code=...&state=...
+  → 同意后跳转 GET https://aliexpress-oauth.onrender.com/callback?code=...&state=...
   → 后端 POST /auth/token/create 换取 access_token
   → 写入 Upstash Redis（EXPIRE）+ SQLite
   → 跳转 /oauth/success
