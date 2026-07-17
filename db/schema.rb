@@ -10,10 +10,11 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_14_185424) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_17_050000) do
   create_table "ali_express_tokens", force: :cascade do |t|
     t.text "access_token"
     t.string "account"
+    t.string "app_key"
     t.datetime "created_at", null: false
     t.datetime "expires_at"
     t.json "raw_response"
@@ -21,5 +22,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_14_185424) do
     t.text "refresh_token"
     t.datetime "updated_at", null: false
     t.string "user_id"
+    t.index ["app_key"], name: "index_ali_express_tokens_on_app_key"
   end
 end

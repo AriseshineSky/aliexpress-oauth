@@ -9,6 +9,10 @@
   <% if @token %>
     <dl class="space-y-3 rounded-lg border border-slate-200 bg-white p-5 text-sm">
       <div>
+        <dt class="text-slate-500">App Key</dt>
+        <dd class="font-mono text-slate-900"><%= @app_key.presence || @token.try(:app_key).presence || "—" %></dd>
+      </div>
+      <div>
         <dt class="text-slate-500">Account</dt>
         <dd class="font-mono text-slate-900"><%= @token.account.presence || "—" %></dd>
       </div>

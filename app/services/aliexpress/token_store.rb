@@ -2,14 +2,14 @@
 
 module Aliexpress
   # Redis-backed token persistence (Upstash-friendly).
-  # Keys auto-expire via Redis EXPIRE; access_token expiry is also tracked in JSON.
+  # Keys: aliexpress:oauth:token:{app_key}  (+ legacy aliexpress:oauth:token for primary)
   class TokenStore
-    KEY = "aliexpress:oauth:token"
+    LEGACY_KEY = "aliexpress:oauth:token"
     CODE_CACHE_PREFIX = "aliexpress:oauth:code:"
 
     Token = Struct.new(
       :id, :access_token, :refresh_token, :expires_at, :refresh_expires_at,
-      :account, :user_id, :raw_response, :created_at, :updated_at,
+      :account, :user_id, :raw_response, :created_at, :updated_at, :app_key,
       keyword_init: true
     ) do
       def expired?
@@ -30,44 +30,71 @@ module Aliexpress
         defined?(REDIS) && REDIS.present?
       end
 
-      def write!(attrs)
+      def redis_key(app_key)
+        key = app_key.to_s.strip
+        return LEGACY_KEY if key.blank?
+
+        "#{LEGACY_KEY}:#{key}"
+      end
+
+      def write!(attrs, app_key: nil)
         return false unless enabled?
 
-        payload = normalize(attrs)
+        app_key = (app_key || attrs[:app_key] || attrs["app_key"]).to_s.strip
+        payload = normalize(attrs, app_key: app_key)
         ttl = ttl_seconds(payload)
-        REDIS.set(KEY, payload.to_json)
-        REDIS.expire(KEY, ttl) if ttl.positive?
+        key = redis_key(app_key)
+        REDIS.set(key, payload.to_json)
+        REDIS.expire(key, ttl) if ttl.positive?
+
+        # Keep legacy key in sync for the primary app (old aliexpress-ds workers).
+        primary = Aliexpress.primary_app
+        if primary && app_key == primary.app_key && key != LEGACY_KEY
+          REDIS.set(LEGACY_KEY, payload.to_json)
+          REDIS.expire(LEGACY_KEY, ttl) if ttl.positive?
+        end
+
         true
       end
 
-      def fetch
+      def fetch(app_key: nil)
         return nil unless enabled?
 
-        raw = REDIS.get(KEY)
+        app_key = app_key.to_s.strip.presence || Aliexpress.primary_app&.app_key
+        return nil if app_key.blank?
+
+        raw = REDIS.get(redis_key(app_key))
+        # Migrate: primary may still only exist on legacy key.
+        if raw.blank? && Aliexpress.primary_app&.app_key == app_key
+          raw = REDIS.get(LEGACY_KEY)
+          if raw.present?
+            data = JSON.parse(raw)
+            write!(data, app_key: app_key)
+          end
+        end
         return nil if raw.blank?
 
-        data = JSON.parse(raw)
-        Token.new(
-          id: data["id"] || "redis",
-          access_token: data["access_token"],
-          refresh_token: data["refresh_token"],
-          expires_at: parse_time(data["expires_at"]),
-          refresh_expires_at: parse_time(data["refresh_expires_at"]),
-          account: data["account"],
-          user_id: data["user_id"],
-          raw_response: data["raw_response"],
-          created_at: parse_time(data["created_at"]) || Time.current,
-          updated_at: parse_time(data["updated_at"]) || Time.current
-        )
+        token_from_json(raw, app_key: app_key)
       rescue JSON::ParserError, Redis::BaseError => e
         Rails.logger.warn("[Aliexpress::TokenStore] fetch failed: #{e.message}")
         nil
       end
 
-      def clear!
+      def fetch_all
+        Aliexpress.apps.filter_map { |app| fetch(app_key: app.app_key) }
+      end
+
+      def clear!(app_key: nil)
         return unless enabled?
 
-        REDIS.del(KEY)
+        app_key = app_key.to_s.strip
+        if app_key.present?
+          REDIS.del(redis_key(app_key))
+          REDIS.del(LEGACY_KEY) if Aliexpress.primary_app&.app_key == app_key
+        else
+          Aliexpress.apps.each { |app| REDIS.del(redis_key(app.app_key)) }
+          REDIS.del(LEGACY_KEY)
+        end
       end
 
       # Idempotent OAuth code exchange (shared across free-tier dyno restarts)
@@ -92,9 +119,27 @@ module Aliexpress
         "#{CODE_CACHE_PREFIX}#{Digest::SHA256.hexdigest(code.to_s)}"
       end
 
-      def normalize(attrs)
+      def token_from_json(raw, app_key:)
+        data = JSON.parse(raw)
+        Token.new(
+          id: data["id"] || "redis",
+          access_token: data["access_token"],
+          refresh_token: data["refresh_token"],
+          expires_at: parse_time(data["expires_at"]),
+          refresh_expires_at: parse_time(data["refresh_expires_at"]),
+          account: data["account"],
+          user_id: data["user_id"],
+          raw_response: data["raw_response"],
+          created_at: parse_time(data["created_at"]) || Time.current,
+          updated_at: parse_time(data["updated_at"]) || Time.current,
+          app_key: data["app_key"].presence || app_key
+        )
+      end
+
+      def normalize(attrs, app_key:)
         {
           id: attrs[:id] || attrs["id"] || "redis",
+          app_key: app_key.presence,
           access_token: attrs[:access_token] || attrs["access_token"],
           refresh_token: attrs[:refresh_token] || attrs["refresh_token"],
           expires_at: time_iso(attrs[:expires_at] || attrs["expires_at"]),

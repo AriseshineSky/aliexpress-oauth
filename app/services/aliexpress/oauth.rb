@@ -7,21 +7,38 @@ module Aliexpress
   class Oauth
     class Error < StandardError; end
 
-    def initialize(client: IopClient.new)
-      @client = client
+    def initialize(app: nil, client: nil)
+      @app = app || Aliexpress.primary_app
+      raise Error, "No AliExpress app configured" if @app.nil?
+
+      @client = client || IopClient.new(app_key: @app.app_key, app_secret: @app.app_secret)
+    end
+
+    def self.for_app_key(app_key)
+      app = Aliexpress.find_app(app_key) || raise(Error, "Unknown app_key=#{app_key.inspect} — add it to Render env")
+      new(app: app)
+    end
+
+    # state embeds app_key so /callback can pick the right Secret without session.
+    def self.build_state(app_key, nonce: SecureRandom.hex(16))
+      "v1.#{app_key}.#{nonce}"
+    end
+
+    def self.parse_state(state)
+      parts = state.to_s.split(".", 3)
+      return {} unless parts.size == 3 && parts[0] == "v1" && parts[1].present?
+
+      { app_key: parts[1], nonce: parts[2] }
     end
 
     def authorization_url(state: nil, force_auth: true, uuid: nil)
-      raise Error, "Set ALIEXPRESS_APP_KEY in .env" unless Aliexpress.config.app_key.present?
-
       query = {
         response_type: "code",
-        client_id: Aliexpress.config.app_key,
+        client_id: @app.app_key,
         redirect_uri: Aliexpress.config.callback_url,
         force_auth: force_auth
       }
       query[:state] = state if state.present?
-      # uuid is optional; only send when explicitly provided (must match token create).
       query[:uuid] = uuid if uuid.present?
 
       "#{Aliexpress.config.authorize_url}?#{URI.encode_www_form(query)}"
@@ -47,6 +64,8 @@ module Aliexpress
       persist_token!(token_payload, raw: body)
     end
 
+    attr_reader :app
+
     private
 
     def unwrap_token_body(body)
@@ -67,6 +86,7 @@ module Aliexpress
       refresh_expires_in = (payload["refresh_expires_in"] || payload["refresh_token_valid_time"]).to_i
 
       attrs = {
+        app_key: @app.app_key,
         access_token: access_token,
         refresh_token: payload["refresh_token"],
         expires_at: expires_in.positive? ? Time.current + expires_in.seconds : nil,
@@ -79,16 +99,25 @@ module Aliexpress
       record = persist_sqlite!(attrs)
       Aliexpress::TokenStore.write!(
         attrs.merge(
-          id: record&.id || "redis",
+          id: record&.id || "redis:#{@app.app_key}",
           created_at: record&.created_at || Time.current
-        )
+        ),
+        app_key: @app.app_key
       )
-      record || Aliexpress::TokenStore.fetch || raise(Error, "Failed to persist token (SQLite + Redis)")
+      Aliexpress::TokenStore.fetch(app_key: @app.app_key) ||
+        record ||
+        raise(Error, "Failed to persist token (SQLite + Redis)")
     end
 
     def persist_sqlite!(attrs)
-      record = AliExpressToken.order(created_at: :desc).first_or_initialize
-      record.assign_attributes(attrs)
+      record = if AliExpressToken.column_names.include?("app_key")
+        AliExpressToken.where(app_key: @app.app_key).order(created_at: :desc).first_or_initialize
+      else
+        AliExpressToken.order(created_at: :desc).first_or_initialize
+      end
+      allowed = %i[access_token refresh_token expires_at refresh_expires_at account user_id raw_response]
+      allowed << :app_key if record.respond_to?(:app_key=)
+      record.assign_attributes(attrs.slice(*allowed))
       record.save!
       record
     rescue ActiveRecord::StatementInvalid, ActiveRecord::NoDatabaseError => e

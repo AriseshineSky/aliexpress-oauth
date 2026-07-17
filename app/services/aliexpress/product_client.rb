@@ -24,8 +24,12 @@ module Aliexpress
       end
     end
 
-    def initialize(client: IopClient.new, access_token: nil)
-      @client = client
+    def initialize(client: nil, access_token: nil, app_key: nil)
+      @app = app_key.present? ? Aliexpress.find_app(app_key) : Aliexpress.primary_app
+      @client = client || IopClient.new(
+        app_key: @app&.app_key || Aliexpress.config.app_key,
+        app_secret: @app&.app_secret || Aliexpress.config.app_secret
+      )
       @access_token = access_token || resolve_token!
     end
 
@@ -48,13 +52,14 @@ module Aliexpress
     private
 
     def resolve_token!
-      token = AliExpressToken.current_token
-      raise Oauth::Error, "尚未完成 OAuth 授权，请先访问 /oauth/authorize" if token.nil?
+      key = @app&.app_key
+      token = AliExpressToken.current_token(app_key: key)
+      raise Oauth::Error, "尚未完成 OAuth 授权，请先访问 /oauth/authorize?app_key=#{key}" if token.nil?
 
       if token.expired? && token.refresh_token.present? && !token.refresh_expired?
-        token = Oauth.new.refresh!(token.refresh_token)
+        token = Oauth.new(app: @app).refresh!(token.refresh_token)
       elsif token.expired?
-        raise Oauth::Error, "access_token 已过期，请重新授权 /oauth/authorize"
+        raise Oauth::Error, "access_token 已过期，请重新授权 /oauth/authorize?app_key=#{key}"
       end
 
       token.access_token
