@@ -32,15 +32,12 @@ class OauthController < ApplicationController
     end
 
     if params[:code].blank?
-      # Common false alarm: clicking the old "Callback" nav link hits /callback with no query.
-      @message = "回调缺少 code 参数（当前不是速卖通授权完成后的跳转）。"
-      @details = {
-        hint: "请回首页点对应 App 的「开始授权」，不要直接打开 /callback。",
-        callback_url_should_be: Aliexpress.config.callback_url,
-        received_path: request.fullpath,
-        received_params: request.query_parameters
-      }
-      render :failure, status: :bad_request
+      # Bare /callback (bookmark, copy-paste, console "test") — not a real OAuth return.
+      Rails.logger.info(
+        "[oauth/callback] missing code path=#{request.fullpath} referer=#{request.referer.inspect} ua=#{request.user_agent}"
+      )
+      redirect_to root_path,
+                  alert: "不要直接打开 Callback 地址。请在下方点对应 App 的「开始授权」，在速卖通同意后再自动跳回。"
       return
     end
 
