@@ -7,7 +7,7 @@ class OauthController < ApplicationController
   # GET /oauth/authorize?app_key=539578 — redirect browser to AliExpress login / consent
   def authorize
     unless Aliexpress.configured?
-      redirect_to root_path, alert: "请先配置 ALIEXPRESS_APP_KEY / SECRET（及可选的 _2 / APPS_JSON）"
+      redirect_to root_path, alert: "请先在首页把 App Key / Secret 保存到 Redis（或配置环境变量）"
       return
     end
 
@@ -56,7 +56,7 @@ class OauthController < ApplicationController
     app_key = parsed[:app_key].presence || session[:oauth_app_key].presence || Aliexpress.primary_app&.app_key
     app = Aliexpress.find_app(app_key)
     unless app
-      @message = "无法识别 app_key=#{app_key.inspect}。请从首页带 app_key 重新授权，或在 Render 配置该 App。"
+      @message = "无法识别 app_key=#{app_key.inspect}。请先在首页保存该 App 到 Redis，再点「开始授权」。"
       render :failure, status: :unprocessable_entity
       return
     end

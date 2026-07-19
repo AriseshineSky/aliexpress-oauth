@@ -1,9 +1,17 @@
 # frozen_string_literal: true
 
 module Aliexpress
-  App = Struct.new(:app_key, :app_secret, :label, :primary, keyword_init: true) do
+  App = Struct.new(:app_key, :app_secret, :label, :primary, :source, keyword_init: true) do
     def primary?
       primary
+    end
+
+    def redis?
+      source == :redis
+    end
+
+    def env?
+      source == :env
     end
 
     def display_name
@@ -27,10 +35,10 @@ module Aliexpress
       apps.any?
     end
 
-    # All registered apps (primary + extras). Shared Callback URL is fine —
+    # Env apps (optional bootstrap) + Redis registry. Shared Callback URL is fine —
     # tokens are stored under aliexpress:oauth:token:{app_key}.
     def apps
-      @apps ||= build_apps
+      build_apps
     end
 
     def find_app(app_key)
@@ -43,7 +51,8 @@ module Aliexpress
     end
 
     def reset_apps!
-      @apps = nil
+      # Kept for callers after registry writes; apps are rebuilt each request.
+      nil
     end
 
     private
@@ -52,7 +61,7 @@ module Aliexpress
       list = []
       seen = {}
 
-      add = lambda do |key, secret, label:, primary: false|
+      add = lambda do |key, secret, label:, primary: false, source:|
         key = key.to_s.strip
         secret = secret.to_s.strip
         return if key.blank? || secret.blank?
@@ -60,22 +69,35 @@ module Aliexpress
         return if seen[key]
 
         seen[key] = true
-        list << App.new(app_key: key, app_secret: secret, label: label, primary: primary)
+        list << App.new(
+          app_key: key,
+          app_secret: secret,
+          label: label,
+          primary: primary,
+          source: source
+        )
       end
 
-      add.call(config.app_key, config.app_secret, label: ENV.fetch("ALIEXPRESS_APP_LABEL", "primary"), primary: true)
+      add.call(
+        config.app_key,
+        config.app_secret,
+        label: ENV.fetch("ALIEXPRESS_APP_LABEL", "primary"),
+        primary: true,
+        source: :env
+      )
 
-      # ALIEXPRESS_APP_KEY_2 / ALIEXPRESS_APP_SECRET_2 … _9
+      # ALIEXPRESS_APP_KEY_2 / ALIEXPRESS_APP_SECRET_2 … _9 (legacy)
       (2..9).each do |i|
         add.call(
           ENV["ALIEXPRESS_APP_KEY_#{i}"],
           ENV["ALIEXPRESS_APP_SECRET_#{i}"],
           label: ENV.fetch("ALIEXPRESS_APP_LABEL_#{i}", "app#{i}"),
-          primary: false
+          primary: false,
+          source: :env
         )
       end
 
-      # Optional JSON: [{"app_key":"539578","app_secret":"...","label":"vps2"}]
+      # Optional JSON (legacy): [{"app_key":"539578","app_secret":"...","label":"vps2"}]
       raw_json = ENV["ALIEXPRESS_APPS_JSON"].to_s.strip
       if raw_json.present?
         JSON.parse(raw_json).each_with_index do |row, idx|
@@ -85,9 +107,21 @@ module Aliexpress
             row["app_key"] || row["key"],
             row["app_secret"] || row["secret"],
             label: row["label"].presence || "json#{idx + 1}",
-            primary: false
+            primary: false,
+            source: :env
           )
         end
+      end
+
+      # Preferred: apps registered in Redis via the console
+      Aliexpress::AppRegistry.all.each do |entry|
+        add.call(
+          entry.app_key,
+          entry.app_secret,
+          label: entry.label.presence || entry.app_key,
+          primary: list.empty?,
+          source: :redis
+        )
       end
 
       list

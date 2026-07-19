@@ -15,7 +15,7 @@ module Aliexpress
     end
 
     def self.for_app_key(app_key)
-      app = Aliexpress.find_app(app_key) || raise(Error, "Unknown app_key=#{app_key.inspect} — add it to Render env")
+      app = Aliexpress.find_app(app_key) || raise(Error, "Unknown app_key=#{app_key.inspect} — add it via console (Redis) or env")
       new(app: app)
     end
 

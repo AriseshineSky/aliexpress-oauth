@@ -3,6 +3,8 @@ Rails.application.routes.draw do
 
   root "home#index"
   post "oauth/refresh", to: "home#refresh_token", as: :refresh_token
+  post "apps", to: "home#create_app", as: :apps
+  delete "apps/:app_key", to: "home#destroy_app", as: :app
 
   # AliExpress OAuth — Console Callback URL uses /callback
   # e.g. https://aliexpress-oauth.onrender.com/callback
