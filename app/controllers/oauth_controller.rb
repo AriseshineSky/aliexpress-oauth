@@ -32,7 +32,14 @@ class OauthController < ApplicationController
     end
 
     if params[:code].blank?
-      @message = "回调缺少 code 参数。请确认 App Console 的 Callback URL 指向本路径。"
+      # Common false alarm: clicking the old "Callback" nav link hits /callback with no query.
+      @message = "回调缺少 code 参数（当前不是速卖通授权完成后的跳转）。"
+      @details = {
+        hint: "请回首页点对应 App 的「开始授权」，不要直接打开 /callback。",
+        callback_url_should_be: Aliexpress.config.callback_url,
+        received_path: request.fullpath,
+        received_params: request.query_parameters
+      }
       render :failure, status: :bad_request
       return
     end

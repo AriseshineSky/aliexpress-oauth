@@ -10,10 +10,17 @@
     <pre class="overflow-x-auto rounded-lg bg-slate-900 p-4 text-xs text-slate-100"><%= @details.is_a?(String) ? @details : (JSON.pretty_generate(@details) rescue @details.inspect) %></pre>
   <% end %>
 
-  <p class="text-sm text-slate-500">授权码 code 只能使用一次。修好配置后请重新点击「重新授权」。</p>
+  <div class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 space-y-2">
+    <p>正确流程：</p>
+    <ol class="list-decimal pl-5 space-y-1">
+      <li>App Console 的 Callback URL 填 <code class="font-mono"><%= Aliexpress.config.callback_url %></code></li>
+      <li>回到<strong>首页</strong>，点对应 App 的「开始授权」</li>
+      <li>在速卖通页面登录并同意后，会自动带回 <code>?code=…</code></li>
+    </ol>
+    <p class="text-xs">直接打开 /callback、或点导航里的旧「Callback」链接，都会出现「缺少 code」——这不是配置坏了。</p>
+  </div>
 
   <div class="flex gap-4 text-sm">
-    <%= link_to "重新授权", oauth_authorize_path, class: "text-orange-700 hover:underline" %>
-    <%= link_to "返回首页", root_path, class: "text-slate-600 hover:underline" %>
+    <%= link_to "返回首页重新授权", root_path, class: "text-orange-700 hover:underline" %>
   </div>
 </section>
