@@ -30,7 +30,7 @@ gem "bootsnap", require: false
 gem "faraday", "~> 2.12"
 
 # Upstash / any Redis — token store with native EXPIRE
-gem "redis", "~> 5.4"
+gem "redis", "~> 6.0"
 
 # Load .env for App Key / Secret in development
 gem "dotenv-rails", groups: [ :development, :test ]
