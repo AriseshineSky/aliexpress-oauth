@@ -27,7 +27,7 @@ gem "tzinfo-data", platforms: %i[ windows jruby ]
 gem "bootsnap", require: false
 
 # HTTP client for AliExpress IOP Open API
-gem "faraday", "~> 2.12"
+gem "faraday", "~> 2.14"
 
 # Upstash / any Redis — token store with native EXPIRE
 gem "redis", "~> 5.4"
