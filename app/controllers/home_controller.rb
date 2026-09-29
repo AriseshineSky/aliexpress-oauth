@@ -8,6 +8,10 @@ class HomeController < ApplicationController
     @tokens_by_app = @apps.to_h { |app| [ app.app_key, AliExpressToken.current_token(app_key: app.app_key) ] }
     @redis_ok = redis_connected?
     @basic_auth_on = ENV["BASIC_AUTH_USER"].present? && ENV["BASIC_AUTH_PASSWORD"].present?
+
+    @ml_apps = MercadoLivre.apps
+    @ml_callback_url = MercadoLivre.config.callback_url
+    @ml_tokens_by_app = @ml_apps.to_h { |app| [ app.app_key, MercadoLivre::TokenStore.fetch(app_key: app.app_key) ] }
   end
 
   # POST /apps — register AppKey/Secret in Redis (no Render env redeploy)

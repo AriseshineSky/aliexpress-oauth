@@ -3,8 +3,8 @@
 module BasicAuthenticable
   extend ActiveSupport::Concern
 
-  # Paths AliExpress / Render must reach without a password prompt.
-  OPEN_PATHS = %w[/callback /oauth/callback /up].freeze
+  # Paths AliExpress / Mercado Livre / Render must reach without a password prompt.
+  OPEN_PATHS = %w[/callback /oauth/callback /ml/callback /up].freeze
 
   included do
     before_action :require_http_basic_auth, if: :basic_auth_enabled?

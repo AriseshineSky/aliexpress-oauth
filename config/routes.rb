@@ -17,4 +17,14 @@ Rails.application.routes.draw do
 
   # Optional: fetch dropshipping product prices after auth
   get "products/:id", to: "products#show", as: :product
+
+  # Mercado Livre (MLB) — official read-only API, shared Redirect URI per Client ID.
+  # e.g. https://aliexpress-oauth.onrender.com/ml/callback
+  post "ml/apps", to: "mercado_livre#create_app", as: :ml_apps
+  delete "ml/apps/:app_key", to: "mercado_livre#destroy_app", as: :ml_app
+  get "ml/authorize", to: "mercado_livre#authorize", as: :ml_authorize
+  get "ml/callback", to: "mercado_livre#callback", as: :ml_callback
+  post "ml/refresh", to: "mercado_livre#refresh", as: :ml_refresh
+  get "ml/success", to: "mercado_livre#success", as: :ml_success
+  get "ml/items/:item_id", to: "mercado_livre#item", as: :ml_item
 end

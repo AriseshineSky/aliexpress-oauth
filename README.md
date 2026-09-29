@@ -117,3 +117,75 @@ bin/dev
 - `Aliexpress.apps` — env（可选）+ Redis 合并
 - `Aliexpress::TokenStore` — `aliexpress:oauth:token:{app_key}`
 - `Aliexpress::Oauth` / `IopClient` — 按 App 签名
+
+---
+
+# Mercado Livre（MLB）— 官方只读 API 支持
+
+同一应用同时支持 **Mercado Livre 巴西站** OAuth。Token 存 Redis（`mercadolivre:oauth:token:{app_key}`），
+凭证存 `mercadolivre:oauth:apps`。**PKCE 关闭 + Somente leitura（read-only）**，读价格/库存走官方 API，
+不需要爬虫与代理（可绕过列表/详情页验证码墙）。
+
+## DevCenter 创建应用（developers.mercadolivre.com.br）
+
+| 字段 | 值 |
+|------|-----|
+| Nome | 随意，如 "Minha integração" |
+| Nome curto | 随意，如 "minha_integracao" |
+| **Redirect URI** | **`https://aliexpress-oauth.onrender.com/ml/callback`**（必须 HTTPS，所有账号填一样） |
+| PKCE | **关闭（OFF）** |
+| Escopos | **Somente leitura（read-only）** |
+| Tópicos / Notificações | 可跳过 |
+
+创建后在应用详情页记下 **App ID (Client ID)** 与 **Secret Key**。
+
+## 怎么用
+
+1. 打开 https://aliexpress-oauth.onrender.com/ （Basic Auth）
+2. 在 **Mercado Livre 授权** 分区填入 App ID / Secret Key / 备注 → **保存到 Redis**
+3. 点该 App 的蓝色 **开始授权** → 用对应买家/卖家账号登录同意
+4. 成功后 Redis 出现 `mercadolivre:oauth:token:{app_key}`（access_token ≈6h 有效，可随时点「刷新」）
+
+查商品价格/库存（只读，无需反爬）：
+
+```
+https://aliexpress-oauth.onrender.com/ml/items/MLB1234567890
+```
+
+返回标题、价格、划线价、库存、已售、permalink 与原始 JSON。也可不带 Token 传 `?app_key=` 指定账号。
+
+## Callback 流程
+
+```
+控制台保存 Client ID/Secret 到 Redis
+  → 首页点「开始授权」(带 app_key)
+  → /ml/authorize?app_key=…
+  → Mercado Livre 登录/同意（state 含 app_key）
+  → GET /ml/callback?code=…&state=ml.v1.{app_key}.{nonce}
+  → 用该 App 的 Secret 调 POST https://api.mercadolibre.com/oauth/token
+  → 写入 Redis key mercadolivre:oauth:token:{app_key}（TTL = expires_in + 6h）
+  → /ml/success?app_key=…
+```
+
+Refresh：`POST https://api.mercadolibre.com/oauth/token` grant_type=refresh_token（refresh_token 每次刷新轮换）。
+
+## 路由（Mercado Livre）
+
+| Method | Path | 说明 |
+|--------|------|------|
+| GET | `/ml/authorize?app_key=` | 跳转 ML 授权 |
+| GET | **`/ml/callback`** | **共用 Redirect URI**（已加入 Basic Auth 白名单） |
+| POST | `/ml/refresh?app_key=` | 强制刷新 |
+| GET | `/ml/success` | 授权成功 |
+| GET | `/ml/items/:item_id` | 只读查商品价格/库存 |
+| POST | `/ml/apps` | 保存 Client ID/Secret |
+| DELETE | `/ml/apps/:app_key` | 删除 Redis 凭证 |
+
+## 核心代码
+
+- `MercadoLivreController` — authorize / callback / refresh / item
+- `MercadoLivre::AppRegistry` — Redis Hash 存多套 Client ID/Secret
+- `MercadoLivre::TokenStore` — `mercadolivre:oauth:token:{app_key}`（Redis，带 TTL）
+- `MercadoLivre::Oauth` — 授权 URL / 换 code / 刷新，并拉取 `/users/me` 记录 nickname
+- `MercadoLivre::Client` — Faraday REST 客户端（token 端点 + GET API）
+
