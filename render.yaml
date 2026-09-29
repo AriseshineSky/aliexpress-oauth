@@ -36,3 +36,7 @@ services:
         sync: false
       - key: BASIC_AUTH_PASSWORD
         sync: false
+      # Mercado Livre — must be HTTPS and match the DevCenter Redirect URI.
+      # Set this in the Render dashboard too if the service was not created from this blueprint.
+      - key: MERCADOLIVRE_CALLBACK_URL
+        value: https://aliexpress-oauth.onrender.com/ml/callback
