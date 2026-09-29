@@ -24,7 +24,7 @@ module MercadoLivre
       @config ||= ActiveSupport::OrderedOptions.new.tap do |c|
         c.app_key = ENV.fetch("MERCADOLIVRE_APP_KEY", "")
         c.app_secret = ENV.fetch("MERCADOLIVRE_APP_SECRET", "")
-        c.callback_url = ENV.fetch("MERCADOLIVRE_CALLBACK_URL", "http://localhost:3000/ml/callback")
+        c.callback_url = ENV.fetch("MERCADOLIVRE_CALLBACK_URL", default_callback_url)
         c.authorize_url = ENV.fetch("MERCADOLIVRE_AUTHORIZE_URL", "https://auth.mercadolivre.com.br/authorization")
         c.api_base = ENV.fetch("MERCADOLIVRE_API_BASE", "https://api.mercadolibre.com")
       end
@@ -56,6 +56,18 @@ module MercadoLivre
     end
 
     private
+
+    # Production deploy safety net: if MERCADOLIVRE_CALLBACK_URL is missing
+    # (e.g. set via Render dashboard after first deploy), derive it from APP_HOST
+    # so the token exchange never uses the http://localhost fallback.
+    def default_callback_url
+      host = ENV["APP_HOST"].to_s.strip
+      if Rails.env.production? && host.present? && !host.include?("http")
+        "https://#{host}/ml/callback"
+      else
+        "http://localhost:3000/ml/callback"
+      end
+    end
 
     def build_apps
       list = []
