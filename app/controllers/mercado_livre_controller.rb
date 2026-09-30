@@ -87,7 +87,7 @@ class MercadoLivreController < ApplicationController
 
     verifier = MercadoLivre::PkceStore.get(params[:state])
     if verifier.blank?
-      @message = "PKCE code_verifier 缺失或已过期（需在 15 分钟内完成授权）。请回首页重新点「开始授权」获取新链接。"
+      @message = "PKCE code_verifier 缺失或已过期（需在 30 分钟内完成授权）。请回首页重新点「转发授权」生成新链接，确认发的是新链接而不是旧的。"
       render :failure, status: :unprocessable_entity
       return
     end

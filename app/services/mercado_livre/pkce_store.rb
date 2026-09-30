@@ -7,7 +7,9 @@ module MercadoLivre
   # Key: mercadolivre:oauth:pkce:{state} — TTL 15min, deleted after exchange.
   class PkceStore
     KEY_PREFIX = "mercadolivre:oauth:pkce"
-    TTL = 15.minutes
+    # 宽松一点：跨境转发协调需要时间；即便 code 先过期（ML 返回 invalid_grant），
+    # verifier 残留也无害。真正约束在 ML 侧授权码有效期（约 10 分钟内完成最稳妥）。
+    TTL = 30.minutes
 
     class << self
       def enabled?
