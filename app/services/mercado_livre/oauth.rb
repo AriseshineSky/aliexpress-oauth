@@ -34,18 +34,22 @@ module MercadoLivre
 
     attr_reader :app
 
-    def authorization_url(state: nil, redirect_uri: nil)
+    def authorization_url(state: nil, redirect_uri: nil, code_challenge: nil, code_challenge_method: "S256")
       query = {
         response_type: "code",
         client_id: @app.app_key,
         redirect_uri: redirect_uri || MercadoLivre.config.callback_url
       }
       query[:state] = state if state.present?
+      if code_challenge.present?
+        query[:code_challenge] = code_challenge
+        query[:code_challenge_method] = code_challenge_method
+      end
 
       "#{MercadoLivre.config.authorize_url}?#{URI.encode_www_form(query)}"
     end
 
-    def exchange_code!(code)
+    def exchange_code!(code, code_verifier: nil)
       raise Error, "Missing authorization code" if code.blank?
 
       body = @client.exchange_token!(
@@ -53,7 +57,8 @@ module MercadoLivre
         client_id: @app.app_key,
         client_secret: @app.app_secret,
         code: code.to_s.strip,
-        redirect_uri: MercadoLivre.config.callback_url
+        redirect_uri: MercadoLivre.config.callback_url,
+        code_verifier: code_verifier
       )
       persist!(body)
     end

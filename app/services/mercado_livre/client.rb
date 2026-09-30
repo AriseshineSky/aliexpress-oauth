@@ -21,7 +21,7 @@ module MercadoLivre
     end
 
     # POST /oauth/token — authorization_code or refresh_token grant
-    def exchange_token!(grant_type:, client_id:, client_secret:, code: nil, refresh_token: nil, redirect_uri: nil)
+    def exchange_token!(grant_type:, client_id:, client_secret:, code: nil, refresh_token: nil, redirect_uri: nil, code_verifier: nil)
       params = {
         "grant_type" => grant_type,
         "client_id" => client_id,
@@ -30,6 +30,7 @@ module MercadoLivre
       params["code"] = code.to_s if code.present?
       params["refresh_token"] = refresh_token.to_s if refresh_token.present?
       params["redirect_uri"] = redirect_uri.to_s if redirect_uri.present?
+      params["code_verifier"] = code_verifier.to_s if code_verifier.present?
 
       response = connection.post do |req|
         req.url "oauth/token"

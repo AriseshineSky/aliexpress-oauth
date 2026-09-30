@@ -85,7 +85,15 @@ class MercadoLivreController < ApplicationController
       return
     end
 
-    token = MercadoLivre::Oauth.new(app: app).exchange_code!(params[:code])
+    verifier = MercadoLivre::PkceStore.get(params[:state])
+    if verifier.blank?
+      @message = "PKCE code_verifier 缺失或已过期（需在 15 分钟内完成授权）。请回首页重新点「开始授权」获取新链接。"
+      render :failure, status: :unprocessable_entity
+      return
+    end
+
+    token = MercadoLivre::Oauth.new(app: app).exchange_code!(params[:code], code_verifier: verifier)
+    MercadoLivre::PkceStore.delete!(params[:state])
     session.delete(:ml_oauth_state)
     session.delete(:ml_oauth_app_key)
     MercadoLivre::TokenStore.cache_code_token_id!(params[:code], token.id)
