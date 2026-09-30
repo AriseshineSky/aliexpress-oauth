@@ -20,7 +20,17 @@ class MercadoLivreController < ApplicationController
     state = MercadoLivre::Oauth.build_state(app.app_key)
     session[:ml_oauth_state] = state
     session[:ml_oauth_app_key] = app.app_key
-    redirect_to MercadoLivre::Oauth.new(app: app).authorization_url(state: state), allow_other_host: true
+
+    verifier = MercadoLivre::Pkce.generate_verifier
+    unless MercadoLivre::PkceStore.set!(state, verifier)
+      redirect_to root_path, alert: "Redis 未连接，无法保存 PKCE code_verifier，请稍后再试。"
+      return
+    end
+
+    redirect_to MercadoLivre::Oauth.new(app: app).authorization_url(
+      state: state,
+      code_challenge: MercadoLivre::Pkce.challenge_for(verifier)
+    ), allow_other_host: true
   end
 
   # GET /ml/share_url?app_key=… — build a forwardable auth link (production HTTPS
@@ -35,10 +45,17 @@ class MercadoLivreController < ApplicationController
     end
 
     state = MercadoLivre::Oauth.build_state(app.app_key)
+    verifier = MercadoLivre::Pkce.generate_verifier
+    unless MercadoLivre::PkceStore.set!(state, verifier)
+      redirect_to root_path, alert: "Redis 未连接，无法保存 PKCE code_verifier；请先配置共享 Redis。"
+      return
+    end
+
     @app = app
     @authorize_url = MercadoLivre::Oauth.new(app: app).authorization_url(
       state: state,
-      redirect_uri: MercadoLivre.config.share_callback_url
+      redirect_uri: MercadoLivre.config.share_callback_url,
+      code_challenge: MercadoLivre::Pkce.challenge_for(verifier)
     )
     @share_callback_url = MercadoLivre.config.share_callback_url
   end
