@@ -34,11 +34,11 @@ module MercadoLivre
 
     attr_reader :app
 
-    def authorization_url(state: nil)
+    def authorization_url(state: nil, redirect_uri: nil)
       query = {
         response_type: "code",
         client_id: @app.app_key,
-        redirect_uri: MercadoLivre.config.callback_url
+        redirect_uri: redirect_uri || MercadoLivre.config.callback_url
       }
       query[:state] = state if state.present?
 

@@ -25,6 +25,9 @@ module MercadoLivre
         c.app_key = ENV.fetch("MERCADOLIVRE_APP_KEY", "")
         c.app_secret = ENV.fetch("MERCADOLIVRE_APP_SECRET", "")
         c.callback_url = ENV.fetch("MERCADOLIVRE_CALLBACK_URL", default_callback_url)
+        # 可转发授权链接用的 Redirect URI：必须是 DevCenter 已注册的 HTTPS 地址（
+        # 默认取生产 callback；本地若配了 localhost 则退回文档中的生产地址）。
+        c.share_callback_url = ENV.fetch("MERCADOLIVRE_SHARE_CALLBACK_URL", default_share_callback_url)
         c.authorize_url = ENV.fetch("MERCADOLIVRE_AUTHORIZE_URL", "https://auth.mercadolivre.com.br/authorization")
         c.api_base = ENV.fetch("MERCADOLIVRE_API_BASE", "https://api.mercadolibre.com")
       end
@@ -57,6 +60,8 @@ module MercadoLivre
 
     private
 
+    SHARE_CALLBACK_DEFAULT = "https://aliexpress-oauth.onrender.com/ml/callback"
+
     # Production deploy safety net: if MERCADOLIVRE_CALLBACK_URL is missing
     # (e.g. set via Render dashboard after first deploy), derive it from APP_HOST
     # so the token exchange never uses the http://localhost fallback.
@@ -67,6 +72,13 @@ module MercadoLivre
       else
         "http://localhost:3000/ml/callback"
       end
+    end
+
+    def default_share_callback_url
+      registered = ENV["MERCADOLIVRE_CALLBACK_URL"].to_s
+      return registered if registered.start_with?("https://") && !registered.include?("localhost")
+
+      SHARE_CALLBACK_DEFAULT
     end
 
     def build_apps

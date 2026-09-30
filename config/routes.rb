@@ -23,6 +23,7 @@ Rails.application.routes.draw do
   post "ml/apps", to: "mercado_livre#create_app", as: :ml_apps
   delete "ml/apps/:app_key", to: "mercado_livre#destroy_app", as: :ml_app
   get "ml/authorize", to: "mercado_livre#authorize", as: :ml_authorize
+  get "ml/share_url", to: "mercado_livre#share_url", as: :ml_share_url
   get "ml/callback", to: "mercado_livre#callback", as: :ml_callback
   post "ml/refresh", to: "mercado_livre#refresh", as: :ml_refresh
   get "ml/success", to: "mercado_livre#success", as: :ml_success

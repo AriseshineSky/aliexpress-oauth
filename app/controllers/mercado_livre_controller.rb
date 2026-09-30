@@ -23,6 +23,26 @@ class MercadoLivreController < ApplicationController
     redirect_to MercadoLivre::Oauth.new(app: app).authorization_url(state: state), allow_other_host: true
   end
 
+  # GET /ml/share_url?app_key=… — build a forwardable auth link (production HTTPS
+  # Redirect URI). Useful when the local network is geo-blocked by ML CloudFront:
+  # send the link to someone on a BR/LATAM network, their browser redirects to the
+  # production /ml/callback and the token lands in the shared Redis.
+  def share_url
+    app = resolve_app_param
+    unless app
+      redirect_to root_path, alert: "未知 app_key=#{params[:app_key].inspect}"
+      return
+    end
+
+    state = MercadoLivre::Oauth.build_state(app.app_key)
+    @app = app
+    @authorize_url = MercadoLivre::Oauth.new(app: app).authorization_url(
+      state: state,
+      redirect_uri: MercadoLivre.config.share_callback_url
+    )
+    @share_callback_url = MercadoLivre.config.share_callback_url
+  end
+
   # GET /ml/callback — shared Redirect URI for every ML app (read-only scope)
   def callback
     if params[:error].present?

@@ -104,6 +104,9 @@
           <% end %>
           <%= link_to "开始授权", ml_authorize_path(app_key: app.app_key),
               class: "inline-flex items-center rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500" %>
+          <%= link_to "转发授权", ml_share_url_path(app_key: app.app_key),
+              class: "inline-flex items-center rounded-md border border-sky-200 bg-white px-3 py-2 text-sm text-sky-700 hover:bg-sky-50",
+              title: "生成本地网络被 CloudFront 封锁时可发给巴西/拉美网络的人 的授权链接（生产 HTTPS 回调）" %>
           <% if app.redis? %>
             <%= button_to "删除凭证", ml_app_path(app.app_key), method: :delete,
                 form: { data: { turbo_confirm: "从 Redis 删除 App #{app.app_key}？Token 不会自动清除。" } },
