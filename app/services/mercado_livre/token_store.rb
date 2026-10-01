@@ -15,7 +15,7 @@ module MercadoLivre
 
     Token = Struct.new(
       :id, :access_token, :refresh_token, :expires_at, :refresh_expires_at,
-      :account, :user_id, :app_key, :created_at, :updated_at,
+      :account, :user_id, :site_id, :app_key, :created_at, :updated_at,
       keyword_init: true
     ) do
       def expired?
@@ -110,6 +110,7 @@ module MercadoLivre
           refresh_expires_at: parse_time(data["refresh_expires_at"]),
           account: data["account"],
           user_id: data["user_id"],
+          site_id: data["site_id"],
           app_key: data["app_key"].presence || app_key,
           created_at: parse_time(data["created_at"]) || Time.current,
           updated_at: parse_time(data["updated_at"]) || Time.current
@@ -126,6 +127,7 @@ module MercadoLivre
           refresh_expires_at: time_iso(attrs[:refresh_expires_at] || attrs["refresh_expires_at"]),
           account: attrs[:account] || attrs["account"],
           user_id: attrs[:user_id] || attrs["user_id"],
+          site_id: attrs[:site_id] || attrs["site_id"],
           created_at: time_iso(attrs[:created_at] || attrs["created_at"] || Time.current),
           updated_at: time_iso(Time.current)
         }

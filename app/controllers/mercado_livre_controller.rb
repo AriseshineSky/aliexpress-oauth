@@ -138,9 +138,11 @@ class MercadoLivreController < ApplicationController
     MercadoLivre::AppRegistry.upsert!(
       app_key: params.require(:app_key),
       app_secret: params.require(:app_secret),
-      label: params[:label]
+      label: params[:label],
+      site: params[:site]
     )
-    redirect_to root_path, notice: "已保存 Mercado Livre App #{params[:app_key]} 到 Redis，可直接点「开始授权」。"
+    site_name = MercadoLivre.site_display(params[:site])
+    redirect_to root_path, notice: "已保存 Mercado Livre App #{params[:app_key]}（#{site_name}）到 Redis，可直接点「开始授权」。"
   rescue ActionController::ParameterMissing => e
     redirect_to root_path, alert: "缺少字段：#{e.param}"
   rescue ArgumentError => e

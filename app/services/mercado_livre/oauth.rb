@@ -3,7 +3,8 @@
 require "cgi"
 
 module MercadoLivre
-  # OAuth 2.0 helpers for Mercado Livre Brasil.
+  # OAuth 2.0 helpers for Mercado Livre（多站点：MLB 巴西 / MLM 墨西哥 / …）。
+  # 授权端点按站点区分（SITES），token 端点 api.mercadolibre.com 全球统一。
   # Docs: https://developers.mercadolivre.com.br/pt_br/autenticacao-e-autorizacao
   class Oauth
     class Error < StandardError; end
@@ -46,7 +47,7 @@ module MercadoLivre
         query[:code_challenge_method] = code_challenge_method
       end
 
-      "#{MercadoLivre.config.authorize_url}?#{URI.encode_www_form(query)}"
+      "#{MercadoLivre.authorize_url_for(@app.site_id)}?#{URI.encode_www_form(query)}"
     end
 
     def exchange_code!(code, code_verifier: nil)
@@ -99,12 +100,13 @@ module MercadoLivre
       MercadoLivre::TokenStore.fetch(app_key: @app.app_key) || token
     end
 
-    # Best-effort: fetch nickname / user info from /users/me; never fails the flow.
+    # Best-effort: fetch nickname / site_id / user info from /users/me; never fails the flow.
     def enrich_with_identity!(token)
       body = @client.me(access_token: token.access_token)
       MercadoLivre::TokenStore.write!(
         token.to_h.compact.merge(
           account: body["nickname"].presence,
+          site_id: body["site_id"].to_s.strip.presence,
           user_id: body["id"].to_s.presence || token.user_id
         ),
         app_key: @app.app_key

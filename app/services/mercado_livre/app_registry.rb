@@ -2,12 +2,12 @@
 
 module MercadoLivre
   # Redis-backed App credential registry (Mercado Livre).
-  # Hash key: mercadolivre:oauth:apps  field=app_key (= Client ID)  value=JSON{app_secret,label}
+  # Hash key: mercadolivre:oauth:apps  field=app_key (= Client ID)  value=JSON{app_secret,label,site}
   # No TTL — credentials persist until deleted from the console.
   class AppRegistry
     KEY = "mercadolivre:oauth:apps"
 
-    Entry = Struct.new(:app_key, :app_secret, :label, keyword_init: true)
+    Entry = Struct.new(:app_key, :app_secret, :label, :site, keyword_init: true)
 
     class << self
       def enabled?
@@ -25,7 +25,8 @@ module MercadoLivre
           Entry.new(
             app_key: app_key.to_s.strip,
             app_secret: secret,
-            label: data["label"].to_s.strip.presence
+            label: data["label"].to_s.strip.presence,
+            site: data["site"].to_s.strip.presence
           )
         end
       rescue Redis::BaseError, JSON::ParserError => e
@@ -33,7 +34,7 @@ module MercadoLivre
         []
       end
 
-      def upsert!(app_key:, app_secret:, label: nil)
+      def upsert!(app_key:, app_secret:, label: nil, site: nil)
         raise ArgumentError, "Redis 未连接" unless enabled?
 
         key = app_key.to_s.strip
@@ -43,7 +44,8 @@ module MercadoLivre
 
         payload = {
           app_secret: secret,
-          label: label.to_s.strip.presence || key
+          label: label.to_s.strip.presence || key,
+          site: MercadoLivre.normalize_site(site, strict: true)
         }
         REDIS.hset(KEY, key, payload.to_json)
         MercadoLivre.reset_apps!

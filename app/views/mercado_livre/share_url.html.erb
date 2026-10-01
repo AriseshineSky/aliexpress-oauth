@@ -4,7 +4,7 @@
     <p class="text-xs font-medium uppercase tracking-widest text-sky-600">Mercado Livre · 转发授权</p>
     <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-900">可转发授权链接</h2>
     <p class="mt-2 text-sm text-slate-600">
-      App <span class="font-mono"><%= @app.app_key %></span> · 回调落在生产服务
+      App <span class="font-mono"><%= @app.app_key %></span>（<%= @app.site_display %>，授权登录 → <code><%= MercadoLivre.authorize_url_for(@app.site_id) %></code>）· 回调落在生产服务
       <span class="font-mono break-all"><%= @share_callback_url %></span>，
       授权成功后 Token 自动写入共享 Redis，回首页即可看到。
     </p>
@@ -29,7 +29,7 @@
 
   <div class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 space-y-2">
     <p><strong>使用前提：</strong>Mercado Livre 对非拉美地区 IP 的授权页直接返回 CloudFront
-      <code>403 Request blocked</code>（本地/中国/美国常见）。让<b>巴西或拉美网络</b>的人用<b>自己的 ML 账号</b>打开此链接并点「授权」即可。</p>
+      <code>403 Request blocked</code>（本地/中国/美国常见）。让<b>对应站点所在国家网络</b>的人（巴西、墨西哥等）用<b>自己的 ML 账号</b>打开此链接并点「授权」即可。</p>
     <p><strong>Token 归属：</strong>谁登录、谁点授权，Token 就绑定谁的账号。需要某个卖家账号的数据时，必须让该账号本人操作。</p>
     <p><strong>安全提醒：</strong>链接只含公开的 Client ID（不含 Secret），但仍应只发给信任的人，不要贴到公开聊天或工单里。</p>
     <p><strong>授权完成后：</strong>浏览器会跳到生产 <code>/ml/callback</code> 并自动兑换 Token，回本页首页刷新即可查看；日常刷新走

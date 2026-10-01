@@ -1,9 +1,9 @@
 <section class="space-y-6">
   <div>
-    <p class="text-xs font-medium uppercase tracking-widest text-sky-600">Mercado Livre · MLB · 官方只读 API</p>
+    <p class="text-xs font-medium uppercase tracking-widest text-sky-600">Mercado Livre · 多站点（MLB / MLM / …）· 官方只读 API</p>
     <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Mercado Livre 授权</h2>
     <p class="mt-2 text-sm text-slate-600">
-      多个 Client ID 共用同一 Redirect URI。Token 存 Redis，按 Client ID 隔离；读价格 / 库存走官方 API，不需要爬虫和代理。
+      多个 Client ID 共用同一 Redirect URI，每个 App 按站点（国别）指向对应的授权端点（如巴西 <code>auth.mercadolivre.com.br</code>、墨西哥 <code>auth.mercadolibre.com.mx</code>）。Token 存 Redis，按 Client ID 隔离；读价格 / 库存走官方 API，不需要爬虫和代理。
     </p>
   </div>
 
@@ -17,7 +17,7 @@
             <li>
               <span class="font-mono"><%= app.app_key %></span>
               <span class="text-slate-500">
-                （<%= app.display_name %><%= " · primary" if app.primary? %> · <%= app.redis? ? "Redis" : "环境变量" %>）
+                （<%= app.display_name %><%= " · primary" if app.primary? %> · <%= app.site_display %> · <%= app.redis? ? "Redis" : "环境变量" %>）
               </span>
             </li>
           <% end %>
@@ -37,7 +37,8 @@
     <div class="rounded-lg border border-slate-200 bg-white p-5">
       <p class="text-xs font-medium uppercase tracking-wide text-slate-500">开发中心配置指引（Mercado Livre DevCenter）</p>
       <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600">
-        <li>创建应用：Nome / Nome curto / Logo 随意填</li>
+        <li>站点入口：巴西 <code>developers.mercadolivre.com.br</code>，墨西哥 <code>developers.mercadolibre.com.mx</code>（需先在对应站点注册账号；墨西哥注册需要墨西哥手机号收验证码）</li>
+        <li>创建应用：Nome / Nome curto / Logo 随意填，页面语言跟随站点</li>
         <li><strong>PKCE：开启</strong>（推荐）——本系统已自动生成 code_challenge / code_verifier，授权链接与回调无需手动处理</li>
         <li>Escopos：<strong>Somente leitura</strong>（read-only）</li>
         <li>Tópicos / Notificações：可跳过</li>
@@ -55,8 +56,8 @@
 
   <div class="rounded-lg border border-slate-200 bg-white p-5">
     <p class="text-xs font-medium uppercase tracking-wide text-slate-500">添加开发者 App</p>
-    <p class="mt-2 text-sm text-slate-600">App ID 即开发中心的「App ID / Client ID」。写入 Redis，无需改 Render 环境变量。</p>
-    <%= form_with url: ml_apps_path, method: :post, local: true, class: "mt-4 grid gap-3 sm:grid-cols-3" do %>
+    <p class="mt-2 text-sm text-slate-600">App ID 即开发中心的「App ID / Client ID」。写入 Redis，无需改 Render 环境变量；站点选择决定授权跳转到哪个国家的登录页。</p>
+    <%= form_with url: ml_apps_path, method: :post, local: true, class: "mt-4 grid gap-3 sm:grid-cols-2" do %>
       <label class="block text-sm">
         <span class="text-slate-600">App ID (Client ID)</span>
         <input type="text" name="app_key" required autocomplete="off"
@@ -73,9 +74,18 @@
         <span class="text-slate-600">备注（可选）</span>
         <input type="text" name="label" autocomplete="off"
                class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-               placeholder="mlb-account-1">
+               placeholder="mlm-account-1">
       </label>
-      <div class="sm:col-span-3">
+      <label class="block text-sm">
+        <span class="text-slate-600">站点</span>
+        <select name="site" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                aria-label="站点">
+          <% MercadoLivre::SITES.each_key do |site| %>
+            <option value="<%= site %>" <%= "selected" if site == MercadoLivre::DEFAULT_SITE %>><%= MercadoLivre::SITE_NAMES[site] %></option>
+          <% end %>
+        </select>
+      </label>
+      <div class="sm:col-span-2">
         <button type="submit"
                 class="inline-flex items-center rounded-md bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600"
                 <%= "disabled" unless @redis_ok %>>
@@ -93,7 +103,7 @@
           <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Token · <%= app.display_name %></p>
           <p class="mt-1 font-mono text-sm text-slate-900"><%= app.app_key %></p>
           <p class="mt-1 text-xs text-slate-500">
-            Redis key <code>mercadolivre:oauth:token:<%= app.app_key %></code>
+            站点：<%= app.site_display %> · Redis key <code>mercadolivre:oauth:token:<%= app.app_key %></code>
             · 凭证来源：<%= app.redis? ? "Redis" : "环境变量" %>
           </p>
         </div>
@@ -106,7 +116,7 @@
               class: "inline-flex items-center rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500" %>
           <%= link_to "转发授权", ml_share_url_path(app_key: app.app_key),
               class: "inline-flex items-center rounded-md border border-sky-200 bg-white px-3 py-2 text-sm text-sky-700 hover:bg-sky-50",
-              title: "生成本地网络被 CloudFront 封锁时可发给巴西/拉美网络的人 的授权链接（生产 HTTPS 回调）" %>
+              title: "生成本地网络被 CloudFront 地域封锁时，可发给对应站点国家网络的人（如巴西/墨西哥）的授权链接（生产 HTTPS 回调）" %>
           <% if app.redis? %>
             <%= button_to "删除凭证", ml_app_path(app.app_key), method: :delete,
                 form: { data: { turbo_confirm: "从 Redis 删除 App #{app.app_key}？Token 不会自动清除。" } },
@@ -120,6 +130,9 @@
         <p class="mt-1 text-sm text-slate-600">到期：<%= ml_token.expires_at || "—" %>（≈6h，可随时刷新）</p>
         <% if ml_token.account.present? %>
           <p class="mt-1 text-xs text-slate-500">Nickname: <%= ml_token.account %></p>
+        <% end %>
+        <% if ml_token.site_id.present? %>
+          <p class="mt-1 text-xs text-slate-500">实际站点（users/me）：<%= MercadoLivre.site_display(ml_token.site_id) %></p>
         <% end %>
         <% if ml_token.user_id.present? %>
           <p class="mt-1 text-xs text-slate-500">User ID: <%= ml_token.user_id %></p>
