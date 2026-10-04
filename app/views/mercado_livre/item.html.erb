@@ -3,7 +3,12 @@
 <section class="space-y-6">
   <div>
     <h1 class="text-2xl font-semibold">Item <%= @item_id %></h1>
-    <p class="mt-1 text-sm text-slate-500">Mercado Livre 官方 API · 只读 · <%= @token ? "已带 Bearer Token" : "未带 Token（公开数据）" %></p>
+    <p class="mt-1 text-sm text-slate-500">
+      Mercado Livre 官方 API · 只读 ·
+      站点 <%= @site.present? ? MercadoLivre.site_display(@site) : "未知（按 item id 前缀推断）" %> ·
+      <%= @app ? "Token 来自 App #{@app.app_key}（#{@app.site_display}）" : "无可用 App" %> ·
+      <%= @token&.usable? ? "已带 Bearer Token" : "未带 Token（公开数据）" %>
+    </p>
   </div>
 
   <% if @error %>

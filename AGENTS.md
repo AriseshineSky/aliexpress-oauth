@@ -18,7 +18,11 @@ Rails 8.1 / Ruby 4.0 / SQLite (fallback) + Upstash Redis (primary) 的 OAuth 回
 ## 目录组织
 
 - `Aliexpress.*` → `app/services/aliexpress/`（`AppRegistry` / `TokenStore` / `Oauth` / `IopClient` / `ProductClient`）
-- `MercadoLivre.*` → `app/services/mercado_livre/`（`AppRegistry` / `TokenStore` / `Oauth` / `Client`）
+- `MercadoLivre.*` → `app/services/mercado_livre/`（`AppRegistry` / `TokenStore` / `Oauth` / `Client` / `Pkce` / `PkceStore`）
+- ML 多卖场（巴西 MLB + 墨西哥 MLM 共存）：站点表 `MercadoLivre::SITES` / `SITE_NAMES`（`config/initializers/mercadolivre.rb`）；
+  默认站点 `DEFAULT_SITE`（env `MERCADOLIVRE_DEFAULT_SITE` 可改，非法值回退 `FALLBACK_SITE = MLB`）；
+  取 App 用 `app_for_site(site)`（未知/未配置返回 nil，不静默回退到巴西）、`apps_by_site`、`site_from_item_id("MLM…")`；
+  改站点走 `AppRegistry.update_site!`（`PATCH /ml/apps/:app_key/site`，不需重填 Secret）。
 - 控制器：`OauthController`（AliExpress）、`MercadoLivreController`（ML）、`HomeController`（控制台首页，渲染两个分区 partial：`views/home/_aliexpress.html.erb` / `_mercadolivre.html.erb`）
 - 平台配置：`config/initializers/aliexpress.rb`、`config/initializers/mercadolivre.rb`（env + Redis 合并，env 同 key 时优先）
 

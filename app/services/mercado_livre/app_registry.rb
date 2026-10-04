@@ -52,6 +52,36 @@ module MercadoLivre
         true
       end
 
+      # 只改站点（不需重填 Secret）：已登记的 MLB App 发现其实是墨西哥账号时切到 MLM。
+      # @return [String] 新的 site_id
+      def update_site!(app_key, site)
+        raise ArgumentError, "Redis 未连接" unless enabled?
+
+        key = app_key.to_s.strip
+        raise ArgumentError, "Client ID 不能为空" if key.blank?
+
+        raw = REDIS.hget(KEY, key)
+        raise ArgumentError, "App #{key} 不在 Redis（可能来自环境变量，请改 env）" if raw.blank?
+
+        data = begin
+          JSON.parse(raw)
+        rescue JSON::ParserError
+          raise ArgumentError, "App #{key} 的 Redis 数据已损坏，请重新保存一次凭证"
+        end
+
+        secret = (data["app_secret"] || data["secret"]).to_s.strip
+        raise ArgumentError, "App #{key} 缺少 Client Secret，请重新保存凭证" if secret.blank?
+
+        payload = {
+          app_secret: secret,
+          label: data["label"].to_s.strip.presence || key,
+          site: MercadoLivre.normalize_site(site, strict: true)
+        }
+        REDIS.hset(KEY, key, payload.to_json)
+        MercadoLivre.reset_apps!
+        payload[:site]
+      end
+
       def delete!(app_key)
         raise ArgumentError, "Redis 未连接" unless enabled?
 

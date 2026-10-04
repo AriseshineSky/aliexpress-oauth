@@ -125,6 +125,7 @@ class MercadoLivreController < ApplicationController
   def success
     app_key = params[:app_key].presence || MercadoLivre.primary_app&.app_key
     @app_key = app_key
+    @app = MercadoLivre.find_app(app_key) if app_key.present?
     @token = MercadoLivre::TokenStore.fetch(app_key: app_key) if app_key.present?
   end
 
@@ -145,6 +146,17 @@ class MercadoLivreController < ApplicationController
     redirect_to root_path, notice: "已保存 Mercado Livre App #{params[:app_key]}（#{site_name}）到 Redis，可直接点「开始授权」。"
   rescue ActionController::ParameterMissing => e
     redirect_to root_path, alert: "缺少字段：#{e.param}"
+  rescue ArgumentError => e
+    redirect_to root_path, alert: e.message
+  rescue Redis::BaseError => e
+    redirect_to root_path, alert: "Redis 写入失败：#{e.message}"
+  end
+
+  # PATCH /ml/apps/:app_key/site — 改站点（MLB ↔ MLM），不需重填 Secret
+  def update_site
+    app_key = params[:app_key].to_s.strip
+    site = MercadoLivre::AppRegistry.update_site!(app_key, params[:site])
+    redirect_to root_path, notice: "App #{app_key} 站点已改为 #{MercadoLivre.site_display(site)}，下次授权将跳转对应国家的登录页。"
   rescue ArgumentError => e
     redirect_to root_path, alert: e.message
   rescue Redis::BaseError => e
@@ -196,13 +208,18 @@ class MercadoLivreController < ApplicationController
   end
 
   # GET /ml/items/:item_id — read-only item lookup price/stock via official API (no captcha)
+  # 站点感知：MLM… 自动用墨西哥 App 的 Token，MLB… 用巴西的（也可用 ?site= / ?app_key= 指定）。
   def item
-    @item_id = params[:item_id]
+    @item_id = params[:item_id].to_s.strip
+    @site = params[:site].presence || MercadoLivre.site_from_item_id(@item_id)
 
-    if params[:app_key].present?
-      @token = MercadoLivre::TokenStore.fetch(app_key: params[:app_key])
+    @app = if params[:app_key].present?
+      MercadoLivre.find_app(params[:app_key])
+    else
+      MercadoLivre.app_for_site(@site) || MercadoLivre.primary_app
     end
-    @token ||= MercadoLivre::TokenStore.fetch(app_key: MercadoLivre.primary_app&.app_key)
+
+    @token = MercadoLivre::TokenStore.fetch(app_key: @app.app_key) if @app
 
     client = MercadoLivre::Client.new
     @raw = client.get("items/#{@item_id}", access_token: @token&.usable? ? @token.access_token : nil)
@@ -215,9 +232,10 @@ class MercadoLivreController < ApplicationController
 
   def resolve_app_param
     key = params[:app_key].presence
-    return MercadoLivre.primary_app if key.blank?
+    return MercadoLivre.find_app(key) if key.present?
 
-    MercadoLivre.find_app(key)
+    # 未带 app_key 时可用 ?site=MLM / ?site=MLB 直接指定卖场
+    MercadoLivre.app_for_site(params[:site]) || MercadoLivre.primary_app
   end
 
   def redis_connected?

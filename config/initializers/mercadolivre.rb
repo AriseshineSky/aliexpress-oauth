@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
 module MercadoLivre
-  DEFAULT_SITE = "MLB"
+  # 默认站点（未指定 site 的 App / 旧 Redis 数据都归到这里）。
+  # 默认巴西 MLB；想把默认换成墨西哥设 MERCADOLIVRE_DEFAULT_SITE=MLM 即可。
+  FALLBACK_SITE = "MLB"
 
   # ML 授权端点按国家/站点区分（token 端点 api.mercadolibre.com 全球统一，不在此表）。
   # 官方列表：https://developers.mercadolivre.com.br/pt_br/autenticacao-e-autorizacao
@@ -48,6 +50,12 @@ module MercadoLivre
     "MSV" => "萨尔瓦多 MSV",
     "MLV" => "委内瑞拉 MLV"
   }.freeze
+
+  # 默认站点：可用 MERCADOLIVRE_DEFAULT_SITE 覆盖（如 MLM），非法值回退巴西 MLB。
+  DEFAULT_SITE = begin
+    requested = ENV.fetch("MERCADOLIVRE_DEFAULT_SITE", "").to_s.strip.upcase
+    SITES.key?(requested) ? requested : FALLBACK_SITE
+  end
 
   App = Struct.new(:app_key, :app_secret, :label, :primary, :source, :site, keyword_init: true) do
     def primary?
@@ -108,6 +116,26 @@ module MercadoLivre
 
     def primary_app
       apps.find(&:primary?) || apps.first
+    end
+
+    # 站点分组：MLB / MLM 各自一套 App（同一部署内共存互不影响）。
+    def apps_by_site
+      apps.group_by(&:site_id)
+    end
+
+    # 按站点取 App（如 MLM → 墨西哥那套 Client ID）；站点未知或未配置时返回 nil，
+    # 由调用方决定回退（不会静默拿到巴西的 App 去读墨西哥数据）。
+    def app_for_site(site)
+      site_id = site.to_s.strip.upcase
+      return nil unless SITES.key?(site_id)
+
+      apps.find { |a| a.site_id == site_id }
+    end
+
+    # 从 item id 前缀推站点："MLM1234567890" → "MLM"；未知前缀返回 nil。
+    def site_from_item_id(item_id)
+      prefix = item_id.to_s.strip[/\A[A-Za-z]{3}/]&.upcase
+      SITES.key?(prefix) ? prefix : nil
     end
 
     def reset_apps!

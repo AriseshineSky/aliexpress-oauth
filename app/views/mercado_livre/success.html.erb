@@ -12,6 +12,16 @@
         <dt class="text-slate-500">Client ID (App Key)</dt>
         <dd class="font-mono text-slate-900"><%= @app_key.presence || @token.app_key.presence || "—" %></dd>
       </div>
+      <% ml_site = @token.site_id.presence || @app&.site_id %>
+      <div>
+        <dt class="text-slate-500">站点 / Site</dt>
+        <dd class="font-mono text-slate-900">
+          <%= ml_site.presence || "—" %>
+          <% if ml_site.present? %>
+            <span class="font-sans text-slate-500">（<%= MercadoLivre.site_display(ml_site) %>）</span>
+          <% end %>
+        </dd>
+      </div>
       <div>
         <dt class="text-slate-500">Nickname</dt>
         <dd class="font-mono text-slate-900"><%= @token.account.presence || "—" %></dd>

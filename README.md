@@ -161,6 +161,20 @@ token 端点 `api.mercadolibre.com` 全球统一）。每个 App 在 Redis 里�
 3. 点该 App 的蓝色 **开始授权** → 用对应站点的买家/卖家账号登录同意
 4. 成功后 Redis 出现 `mercadolivre:oauth:token:{app_key}`，≈6h 有效，可随时点「刷新」
 
+### 巴西 + 墨西哥两个卖场同时跑（推荐做法）
+
+一个部署即可，**每个卖场一个 App（Client ID）**，共用同一个 Redirect URI：
+
+| 卖场 | DevCenter 建应用 | 控制台站点选 | 授权跳转 | Token Redis key |
+|------|-------------------|--------------|----------|------------------|
+| 巴西 MLB | developers.mercadolivre.com.br | `MLB` | auth.mercadolivre.com.br | `mercadolivre:oauth:token:{br_app_id}` |
+| 墨西哥 MLM | developers.mercadolibre.com.mx | `MLM` | auth.mercadolibre.com.mx | `mercadolivre:oauth:token:{mx_app_id}` |
+
+- 站点存错了吗？卡片下方「**改站点**」直接切（MLB ↔ MLM），不用重填 Secret；改完重新点「开始授权」。
+- 两个卖场互不影响：授权端点按站点选，Token 按 Client ID 隔离。
+- worker 端读数据时用对应卖场的 key（墨西哥就读 MX App 的 `mercadolivre:oauth:token:{mx_app_id}`）。
+- 默认站点仍是巴西（`MercadoLivre::DEFAULT_SITE`）；如需改默认设 `MERCADOLIVRE_DEFAULT_SITE=MLM`。
+
 查商品价格/库存（只读，无需反爬）：`MLB…` / `MLM…` 前缀的 item id 都支持：
 
 ```
@@ -192,8 +206,9 @@ Refresh：`POST https://api.mercadolibre.com/oauth/token` grant_type=refresh_tok
 | GET | **`/ml/callback`** | **共用 Redirect URI**（已加入 Basic Auth 白名单） |
 | POST | `/ml/refresh?app_key=` | 强制刷新 |
 | GET | `/ml/success` | 授权成功 |
-| GET | `/ml/items/:item_id` | 只读查商品价格/库存 |
+| GET | `/ml/items/:item_id` | 只读查商品价格/库存（根据 item id 前缀 MLB/MLM 自动选对应卖场的 Token，也可 `?site=` / `?app_key=`） |
 | POST | `/ml/apps` | 保存 Client ID/Secret（含站点 site 字段） |
+| PATCH | `/ml/apps/:app_key/site` | 只改站点（如 MLB → MLM），无需重填 Secret |
 | DELETE | `/ml/apps/:app_key` | 删除 Redis 凭证 |
 
 ## 核心代码
